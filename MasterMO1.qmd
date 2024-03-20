@@ -1,0 +1,259 @@
+---
+title: "Master M& O"
+format: html
+editor: visual
+execute:
+  include : true
+  warning: false
+  error: false
+  code-fold: true
+---
+
+## Les packages
+
+```{r}
+library(tidyverse)
+library(readr)
+library(FactoMineR)
+library(factoextra)
+
+```
+
+## lecture du fichier et recodage
+
+Le fichier Listing représente les logements présents sur la plateforme vers le 12 /13 décembre 2023. On en sélectionne quelques variables.
+
+```{r}
+
+listings <- read_csv("listings.csv") %>%
+  select(id, 
+         host_id, 
+         host_name,
+         host_about,
+         number_of_reviews,
+         first_review,
+         price,
+         beds,
+         room_type,
+         review_scores_rating, 
+         review_scores_accuracy,
+         review_scores_cleanliness ,
+         review_scores_checkin, 
+         review_scores_communication ,      
+         review_scores_location,
+         review_scores_value,
+         neighbourhood_cleansed
+         )%>%
+    mutate(price_n=as.numeric(substr(price,2, stop=nchar(price)))) #à expliquer comment on recode le prix
+
+
+```
+
+## Un premier graphique
+
+La distribution des prix par types de logement
+
+
+```{r}
+ggplot(listings, aes(x=price_n))+
+  geom_histogram(fill="pink")+
+  scale_x_log10()+
+  facet_wrap(vars(room_type), scale="free", ncol=2)
+```
+## Les prix par arrondissement
+
+```{r}
+foo<-listings %>%
+  group_by(neighbourhood_cleansed)%>%
+  summarise(n=n(),
+            price_mean=mean(price_n,na.rm=TRUE),
+            sd=2*sd(price_n, na.rm=TRUE)/sqrt(n-1))
+
+px<- round(mean(listings$price_n,na.rm=TRUE),2)
+
+ggplot(foo, aes(x=reorder(neighbourhood_cleansed, price_mean), y=price_mean))+
+  geom_point(stat="identity")+
+  coord_flip()+
+  labs( title = paste0("Prix Airbnb à paris : ", px))
+
+```
+## Un test de comparaison de moyenne
+
+Une anova
+
+```{r}
+
+fit <-lm(price_n~neighbourhood_cleansed+room_type, listings)
+anova(fit)
+```
+
+Le modèle de régression
+
+
+```{r}
+summary(fit)
+```
+
+Le diagramme des effets marginaux
+
+( un exercice : recoder les arrondissement par leur numéro)
+
+
+```{r}
+
+library(jtools)
+summ(fit)
+effect_plot(fit, pred = neighbourhood_cleansed)+coord_flip()
+
+
+```
+## Un graphique plus sophistiqué
+
+```{r}
+foo<-listings %>%
+  group_by(neighbourhood_cleansed, room_type)%>%
+  summarise(n=n(),
+            price_mean=mean(price_n,na.rm=TRUE),
+            sd=2*sd(price_n, na.rm=TRUE)/sqrt(n-1))
+
+
+
+ggplot(foo, aes(x = reorder(neighbourhood_cleansed, price_mean),y=price_mean))+
+  geom_bar(stat="identity", aes(fill=log10(n)))+
+  geom_errorbar(aes(ymin=price_mean-sd, ymax=price_mean+sd), width=.2,
+                 position=position_dodge(.9)) + 
+  coord_flip()+
+  labs(title = "Prix moyens des locations par arrondissement",
+       x=NULL,
+       y =" Average price")+
+  scale_fill_gradient(low="yellow", high="darkblue")+
+  facet_wrap(vars(room_type), scale="free")
+
+
+
+```
+
+## Examinons les notes
+
+
+```{r}
+foo<- listings %>%
+  select(id, 
+         review_scores_rating,
+         review_scores_accuracy,
+         review_scores_cleanliness,
+         review_scores_checkin,
+         review_scores_communication,
+         review_scores_location,
+         review_scores_value) %>%
+  drop_na()
+
+foo1 <- foo %>%
+  pivot_longer(-id, names_to = "Critères", values_to = "Note")%>%
+  group_by(Critères)%>%
+  summarise(Note=mean(Note,na.rm=TRUE))
+
+ggplot(foo1,aes(x=reorder(Critères, Note), y= Note) )+
+  geom_point(stat="identity")+
+  coord_flip()
+
+```
+
+Examinons les corrélations
+```{r}
+
+foo<-foo %>%
+  select(-id)
+
+r<-cor(foo)
+
+library(ggcorrplot)
+ggcorrplot(r, hc.order = TRUE, 
+           type = "lower",
+   outline.col = "white",
+   ggtheme = ggplot2::theme_gray,
+   colors = c("#6D9EC1", "white", "#E46726"))
+
+
+```
+
+## Partons pour une Analyse en Composantes Principales
+
+```{r}
+
+res.pca <- PCA(foo, ncp=2, graph = FALSE)
+
+fviz_pca_var(res.pca, col.var = "contrib",
+   gradient.cols = c("white", "blue", "red"),
+   ggtheme = theme_minimal())
+
+
+```
+## Et enchainons avec un clustering
+
+On emploie une méthode brutale : K-means
+```{r}
+
+#on récupère les scores des individus
+
+
+ind<-res.pca$ind$coord
+
+# le nombre de groupe a priori
+k<- 7
+
+# Calculer k-means avec k 
+set.seed(123)
+res.km <- kmeans(ind, k, nstart = 25)
+
+# Clustering K-means montrant le groupe de chaque individu
+
+foo1<-cbind(foo,res.km$cluster )%>%
+  rename(cluster=8) 
+
+foo1$cluster<- as.character(foo1$cluster)
+
+ggplot(foo1,aes(x=review_scores_rating, review_scores_location ))+
+  geom_point(aes(color=cluster))+
+  scale_color_manual(values=c("orange", "pink", "grey", "skyblue" ,"green", "red", "purple" ))
+```
+
+```{r}
+library(ggwordcloud)
+# attribution table ( large but not so reliable!)
+NamesOut <- read_table("NamesOut.txt", col_names = FALSE)%>%
+  rename(surname=X1, gender =X2)
+
+#plus de finesse en isolant le premier mot, et en identifiant les couples ( & et)
+
+foo<- listings %>%
+  group_by(host_name)%>%
+  summarise(n=n()) %>%
+  arrange(desc(n))%>%
+  mutate(surname=word(host_name,1))%>% #on prend le premier mot de la séquence
+  left_join(NamesOut) %>%
+  mutate(Genre=ifelse(is.na(gender),"Société", gender), #on identifie ce qui n'est pas un prénom donc une société
+         Genre=ifelse(str_detect(host_name, "\\s[et, ET, &]\\s"), "Couple", Genre))%>%
+filter(n>30)
+
+
+ggplot(foo, aes(x = Genre, y = n)) +
+  geom_bar(stat="identity") + coord_flip()
+
+ggsave("./images/prenoms1.jpg", width = 27, height = 20, units = "cm")
+
+foo <- foo %>%
+    filter(Genre %in% c("M","F", "Société" ) )
+
+
+ggplot(foo, aes(label = surname, size = n)) +
+  geom_text_wordcloud(aes(size=n,color=Genre)) +
+  scale_size_area(max_size = 8) +
+  theme_minimal()+
+  facet_wrap(vars(Genre), ncol=3)
+
+
+ggsave("./images/prenoms2.jpg", width = 27, height = 20, units = "cm")
+
+```
+
