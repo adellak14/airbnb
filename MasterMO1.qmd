@@ -1,5 +1,5 @@
 ---
-title: "Master M& O"
+title: "Master M & O Dauphine : Inside Airbnb"
 format: html
 editor: visual
 execute:
@@ -8,6 +8,9 @@ execute:
   error: false
   code-fold: true
 ---
+
+![AirbnbParis](./images/AirbnbParis.jpg)
+
 
 ## Les packages
 
@@ -87,16 +90,16 @@ fit <-lm(price_n~neighbourhood_cleansed+room_type, listings)
 anova(fit)
 ```
 
-Le modèle de régression
+## Le modèle de régression
 
 
 ```{r}
 summary(fit)
 ```
 
-Le diagramme des effets marginaux
+## Le diagramme des effets marginaux
 
-( un exercice : recoder les arrondissement par leur numéro)
+(un exercice : recoder les arrondissement par leur numéro)
 
 
 ```{r}
@@ -159,7 +162,9 @@ ggplot(foo1,aes(x=reorder(Critères, Note), y= Note) )+
 
 ```
 
-Examinons les corrélations
+## Examinons les corrélations des notes
+
+
 ```{r}
 
 foo<-foo %>%
@@ -192,6 +197,8 @@ fviz_pca_var(res.pca, col.var = "contrib",
 ## Et enchainons avec un clustering
 
 On emploie une méthode brutale : K-means
+
+
 ```{r}
 
 #on récupère les scores des individus
@@ -217,6 +224,8 @@ ggplot(foo1,aes(x=review_scores_rating, review_scores_location ))+
   geom_point(aes(color=cluster))+
   scale_color_manual(values=c("orange", "pink", "grey", "skyblue" ,"green", "red", "purple" ))
 ```
+## Un étude des prénoms
+
 
 ```{r}
 library(ggwordcloud)
@@ -241,6 +250,12 @@ ggplot(foo, aes(x = Genre, y = n)) +
   geom_bar(stat="identity") + coord_flip()
 
 ggsave("./images/prenoms1.jpg", width = 27, height = 20, units = "cm")
+
+```
+
+# le prénom des loueurs
+
+```{r}
 
 foo <- foo %>%
     filter(Genre %in% c("M","F", "Société" ) )

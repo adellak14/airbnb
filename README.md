@@ -3,4 +3,4 @@
 
 A data mining exercice with an Airbnb dataset. 
 
-[Code outputs are there]()
+[Code outputs are there](https://benaventc.github.io/Airbnb_lecture_basic/MasterMO1.html)
