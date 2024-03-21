@@ -61,7 +61,7 @@ La distribution des prix par types de logement
 ggplot(listings, aes(x=price_n))+
   geom_histogram(fill="pink")+
   scale_x_log10()+
-  facet_wrap(vars(room_type), scale="free", ncol=2)
+  facet_wrap(vars(beds), scale="free", ncol=2)
 ```
 ## Les prix par arrondissement
 
